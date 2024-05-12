@@ -23,4 +23,4 @@ Outline what needs to be done
 Outline any potential limitations
 
 # Resources
-- outline links and relevant resources, references implementations
+- outline links and relevant resources, references, implementations

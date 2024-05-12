@@ -2,17 +2,14 @@
 name: Design
 about: UI/UX Design
 title: "[DESIGN]"
-labels: ''
+labels: design
 assignees: ''
 
 ---
 
-## Design Task
-
-**Title:** [Brief description of the design task]
+**Title:** 
 
 **Description:**
-
 Provide a detailed description of the design task, including the context, goals, and any specific requirements or constraints.
 
 **Scope:**
@@ -32,7 +29,6 @@ Provide a detailed description of the design task, including the context, goals,
 - Figma Link: [Link to any existing designs or wireframes that should be considered]
 
 **Acceptance Criteria:**
-
 - [List the criteria that the design should meet to be considered complete and acceptable]
 - [Specify any specific design principles, accessibility guidelines, or other requirements]
 

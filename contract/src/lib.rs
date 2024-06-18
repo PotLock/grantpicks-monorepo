@@ -2,6 +2,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, log, near_bindgen, AccountId, PanicOnDefault};
+use num_bigint::BigUint;
+use num_traits::{ToPrimitive, Zero};
 use std::collections::{HashMap, HashSet};
 
 pub type TimestampMs = u64;
@@ -78,7 +80,7 @@ pub struct Round {
     num_picks_per_voter: u8,
     applications: HashMap<AccountId, Application>,
     approved_applicants: HashSet<AccountId>,
-    votes: HashMap<AccountId, u128>,
+    votes: HashMap<AccountId, String>,
     payouts: HashMap<AccountId, Payout>,
 }
 
@@ -100,33 +102,33 @@ impl Contract {
         }
     }
 
-    /// Encode preferences into a 64-bit integer using 2 bits per pick
-    pub(crate) fn encode_preferences(pairs: Vec<(usize, bool)>, total_pairs: usize) -> u128 {
-        let mut encoded: u128 = 0;
+    /// Encode preferences into a BigUint using 2 bits per pick
+    pub(crate) fn encode_preferences(pairs: Vec<(usize, bool)>, total_pairs: usize) -> BigUint {
+        let mut encoded = BigUint::zero();
         let mut voted_pairs = vec![false; total_pairs];
         for (index, pref) in pairs {
             let bit_position = index * 2;
-            let bit_value = if pref { 1 } else { 0 };
-            encoded |= (bit_value as u128) << bit_position;
+            let bit_value = if pref { 1u8 } else { 0u8 };
+            encoded |= BigUint::from(bit_value) << bit_position;
             voted_pairs[index] = true;
         }
         // Set all unvoted pairs to a specific value (e.g., 3)
         for (i, voted) in voted_pairs.iter().enumerate() {
             if !voted {
-                encoded |= 3 << (i * 2);
+                encoded |= BigUint::from(3u8) << (i * 2);
             }
         }
         encoded
     }
 
-    /// Decode preferences from a 64-bit integer
-    pub(crate) fn decode_preferences(encoded: u128, total_pairs: usize) -> Vec<(usize, bool)> {
+    /// Decode preferences from a BigUint
+    pub(crate) fn decode_preferences(encoded: BigUint, total_pairs: usize) -> Vec<(usize, bool)> {
         let mut pairs = Vec::new();
         for i in 0..total_pairs {
             let bit_position = i * 2;
-            let bit_value = (encoded >> bit_position) & 3;
-            if bit_value == 0 || bit_value == 1 {
-                let pref = bit_value == 1;
+            let bit_value = (&encoded >> bit_position) & BigUint::from(3u8);
+            if bit_value == BigUint::from(0u8) || bit_value == BigUint::from(1u8) {
+                let pref = bit_value == BigUint::from(1u8);
                 pairs.push((i, pref));
             }
         }
@@ -135,6 +137,7 @@ impl Contract {
 
     /// Submit a vote by a voter with their picks
     pub fn submit_vote(&mut self, round_id: RoundId, picks: Vec<String>) {
+        let initial_storage_usage = env::storage_usage();
         let voter_id = env::predecessor_account_id();
         // First, get approved_applicants immutably
         let approved_applicants: Vec<AccountId> = {
@@ -145,12 +148,23 @@ impl Contract {
         let total_pairs = approved_applicants.len() * (approved_applicants.len() - 1) / 2;
         let pairs = self.convert_picks_to_pairs(picks.clone(), &approved_applicants);
         let encoded_preferences = Self::encode_preferences(pairs, total_pairs);
+        // Convert BigUint to string
+        let encoded_preferences_str = encoded_preferences.to_str_radix(10);
         // Now, mutably borrow the round
         let round = self
             .rounds_by_id
             .get_mut(&round_id)
             .expect("Round not found");
-        round.votes.insert(voter_id.clone(), encoded_preferences);
+        round
+            .votes
+            .insert(voter_id.clone(), encoded_preferences_str);
+        // calculate & log storage usage
+        let storage_usage = env::storage_usage() - initial_storage_usage;
+        log!(
+            "Storage used for vote by {}: {} bytes",
+            voter_id,
+            storage_usage
+        );
     }
 
     /// Get a random number using `env::random_seed` and a shift amount.
@@ -207,7 +221,9 @@ impl Contract {
         let num_pairs = approved_applicants.len() * (approved_applicants.len() - 1) / 2;
         let mut decoded_picks_map = HashMap::new();
 
-        for (voter_id, &encoded) in &round.votes {
+        for (voter_id, encoded_str) in &round.votes {
+            let encoded =
+                BigUint::parse_bytes(encoded_str.as_bytes(), 10).expect("Invalid BigUint string");
             let decoded_picks = Self::decode_preferences(encoded, num_pairs);
 
             let decoded_pick_strings: Vec<String> = decoded_picks
@@ -306,11 +322,13 @@ impl Contract {
     pub fn calculate_preferences_for_round(&self, round: &Round) -> Vec<(usize, usize, bool)> {
         let num_pairs = round.approved_applicants.len() * (round.approved_applicants.len() - 1) / 2;
         let mut aggregated_preferences = vec![0; num_pairs];
-        for encoded in round.votes.values() {
+        for encoded_str in round.votes.values() {
+            let encoded =
+                BigUint::parse_bytes(encoded_str.as_bytes(), 10).expect("Invalid BigUint string");
             for i in 0..num_pairs {
                 let bit_position = i * 2;
-                let bit_value = (*encoded >> bit_position) & 1;
-                aggregated_preferences[i] += bit_value as usize;
+                let bit_value = (&encoded >> bit_position) & BigUint::from(1u8);
+                aggregated_preferences[i] += bit_value.to_usize().unwrap_or(0);
             }
         }
         aggregated_preferences

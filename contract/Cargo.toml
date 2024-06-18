@@ -9,6 +9,8 @@ crate-type = ["cdylib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 near-sdk = "5.1.0"
+num-bigint = "0.4"
+num-traits = "0.2"
 # parity-secp256k1 = "0.7.0"
 # near-sdk = "5.0.0-alpha.2"
 # [profile.release] # removed as added to root Cargo.toml

@@ -6,12 +6,11 @@
   "author": "Lachlan Glen <54282009+lachlanglen@users.noreply.github.com>",
   "license": "MIT",
   "scripts": {
-    "build": "cd contract && ./scripts/build.sh && cd ..",
-    "dev:deploy": "cd contract && ./scripts/deploy.sh && cd .. && yarn patch:config contract",
-    "dev:deploy:refresh": "cd contract && rm -rf neardev && ./scripts/deploy.sh && cd .. && yarn patch:config contract",
+    "build": "./scripts/build.sh",
+    "dev:deploy": "./scripts/deploy.sh && yarn patch:config",
+    "dev:deploy:refresh": "rm -rf neardev && ./scripts/deploy.sh && yarn patch:config",
     "works": "yarn build && yarn dev:deploy",
-    "works:refresh": "yarn build && yarn dev:deploy:refresh",
-    "patch:config": "node ./test/utils/patch-config.mjs"
+    "works:refresh": "yarn build && yarn dev:deploy:refresh"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.2",
